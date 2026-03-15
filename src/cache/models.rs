@@ -161,12 +161,24 @@ pub struct Question {
 }
 
 impl Question {
+    fn effective_content(&self) -> &String {
+        if self.content.is_empty()
+            || self
+                .content
+                .contains("English description is not available")
+        {
+            &self.t_content
+        } else {
+            &self.content
+        }
+    }
+
     pub fn desc(&self) -> String {
-        self.content.render()
+        self.effective_content().render()
     }
 
     pub fn desc_comment(&self, conf: &Config) -> String {
-        let desc = self.content.render();
+        let desc = self.effective_content().render();
 
         let mut res = desc.lines().fold("\n".to_string(), |acc, e| {
             acc + "" + conf.code.comment_leading.as_str() + " " + e + "\n"

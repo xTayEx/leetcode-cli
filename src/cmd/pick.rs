@@ -3,6 +3,10 @@ use crate::cache::models::Problem;
 use crate::err::Error;
 use clap::Args;
 
+static CATEGORY_HELP: &str = r#"Problem category
+[algorithms, database, shell, concurrency, lcp, lcr, lcs, lcof]
+Defaults to "algorithms" if not specified"#;
+
 static QUERY_HELP: &str = r#"Filter questions by conditions:
 Uppercase means negative
 e = easy     E = m+h
@@ -38,6 +42,9 @@ pub struct PickArgs {
     /// Pick today's daily challenge
     #[arg(short = 'd', long)]
     pub daily: bool,
+
+    #[arg(short, long, help = CATEGORY_HELP)]
+    pub category: Option<String>,
 }
 
 impl PickArgs {
@@ -52,6 +59,11 @@ impl PickArgs {
             cache.download_problems().await?;
             return Box::pin(self.run()).await;
         }
+
+        let default_category = "algorithms".to_string();
+        let cat_str = self.category.as_ref().unwrap_or(&default_category);
+        problems.retain(|x| x.category == *cat_str);
+        let cat = Some(cat_str.as_str());
 
         // filtering...
         // pym scripts
@@ -91,7 +103,7 @@ impl PickArgs {
             })
         };
 
-        let r = cache.get_question(fid).await;
+        let r = cache.get_question(fid, cat).await;
 
         match r {
             Ok(q) => println!("{}", q.desc()),

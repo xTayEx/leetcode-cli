@@ -2,6 +2,10 @@
 use crate::{Error, Result};
 use clap::Args;
 
+static CATEGORY_HELP: &str = r#"Problem category
+[algorithms, database, shell, concurrency, lcp, lcr, lcs, lcof]
+Defaults to "algorithms" if not specified"#;
+
 /// Exec command arguments
 #[derive(Args)]
 #[command(group = clap::ArgGroup::new("question-id").args(&["id", "daily"]).required(true))]
@@ -13,6 +17,9 @@ pub struct ExecArgs {
     /// Submit today's daily challenge
     #[arg(short = 'd', long)]
     pub daily: bool,
+
+    #[arg(short, long, help = CATEGORY_HELP)]
+    pub category: Option<String>,
 }
 
 impl ExecArgs {
@@ -29,8 +36,9 @@ impl ExecArgs {
         };
 
         let id = self.id.or(daily_id).ok_or(Error::NoneError)?;
+        let cat = self.category.as_deref();
 
-        let res = cache.exec_problem(id, Run::Submit, None).await?;
+        let res = cache.exec_problem(id, Run::Submit, cat, None).await?;
 
         println!("{}", res);
         Ok(())

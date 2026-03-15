@@ -106,23 +106,26 @@ impl Cache {
     }
 
     /// Get problem
-    pub fn get_problem(&self, rfid: i32) -> Result<Problem, Error> {
-        let p: Problem = problems.filter(fid.eq(rfid)).first(&mut self.conn()?)?;
-        if p.category != "algorithms" {
-            return Err(anyhow!("No support for database and shell questions yet").into());
-        }
-
+    pub fn get_problem(&self, rfid: i32, cat: Option<&str>) -> Result<Problem, Error> {
+        let cat = cat.unwrap_or("algorithms");
+        let p: Problem = problems
+            .filter(fid.eq(rfid))
+            .filter(category.eq(cat))
+            .first(&mut self.conn()?)?;
         Ok(p)
     }
 
     /// Get problem from name
-    pub fn get_problem_id_from_name(&self, problem_name: &String) -> Result<i32, Error> {
+    pub fn get_problem_id_from_name(
+        &self,
+        problem_name: &String,
+        cat: Option<&str>,
+    ) -> Result<i32, Error> {
+        let cat = cat.unwrap_or("algorithms");
         let p: Problem = problems
             .filter(name.eq(problem_name))
+            .filter(category.eq(cat))
             .first(&mut self.conn()?)?;
-        if p.category != "algorithms" {
-            return Err(anyhow!("No support for database and shell questions yet").into());
-        }
         Ok(p.fid)
     }
 
@@ -146,8 +149,12 @@ impl Cache {
 
     /// Get question
     #[allow(clippy::useless_let_if_seq)]
-    pub async fn get_question(&self, rfid: i32) -> Result<Question, Error> {
-        let target: Problem = problems.filter(fid.eq(rfid)).first(&mut self.conn()?)?;
+    pub async fn get_question(&self, rfid: i32, cat: Option<&str>) -> Result<Question, Error> {
+        let cat = cat.unwrap_or("algorithms");
+        let target: Problem = problems
+            .filter(fid.eq(rfid))
+            .filter(category.eq(cat))
+            .first(&mut self.conn()?)?;
 
         let ids = match target.level {
             1 => target.fid.to_string().green(),
@@ -162,10 +169,6 @@ impl Cache {
             &target.name.bold().underline(),
             "is on the run...".dimmed()
         );
-
-        if target.category != "algorithms" {
-            return Err(anyhow!("No support for database and shell questions yet").into());
-        }
 
         let mut rdesc = Question::default();
         if !target.desc.is_empty() {
@@ -242,6 +245,7 @@ impl Cache {
         &self,
         run: Run,
         rfid: i32,
+        cat: Option<&str>,
         test_case: Option<String>,
     ) -> Result<(HashMap<&'static str, String>, [String; 2]), Error> {
         trace!("pre-run code...");
@@ -249,11 +253,11 @@ impl Cache {
         use std::fs::File;
         use std::io::Read;
 
-        let mut p = self.get_problem(rfid)?;
+        let mut p = self.get_problem(rfid, cat)?;
         if p.desc.is_empty() {
             trace!("Problem description does not exist, pull desc and exec again...");
-            self.get_question(rfid).await?;
-            p = self.get_problem(rfid)?;
+            self.get_question(rfid, cat).await?;
+            p = self.get_problem(rfid, cat)?;
         }
 
         let d: Question = serde_json::from_str(&p.desc)?;
@@ -341,10 +345,11 @@ impl Cache {
         &self,
         rfid: i32,
         run: Run,
+        cat: Option<&str>,
         test_case: Option<String>,
     ) -> Result<VerifyResult, Error> {
         trace!("Exec problem filter —— Test or Submit");
-        let (json, [url, refer]) = self.pre_run_code(run.clone(), rfid, test_case).await?;
+        let (json, [url, refer]) = self.pre_run_code(run.clone(), rfid, cat, test_case).await?;
         trace!("Pre-run code result {:#?}, {}, {}", json, url, refer);
 
         let text = self

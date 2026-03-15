@@ -11,22 +11,32 @@ pub fn problem(problems: &mut Vec<Problem>, v: Value) -> Option<()> {
         let total_submitted = stat.get("total_submitted")?.as_f64()? as f32;
 
         let fid_obj = stat.get("frontend_question_id")?;
-        let fid = match fid_obj.as_i64() {
-            // Handle on leetcode-com
-            Some(s) => s as i32,
-            // Handle on leetcode-cn
-            None => fid_obj
-                .as_str()?
-                .split(' ')
-                .next_back()?
-                .parse::<i32>()
-                .ok()?,
+        let (fid, fid_prefix) = match fid_obj.as_i64() {
+            Some(s) => (s as i32, None),
+            None => {
+                let s = fid_obj.as_str()?;
+                let parts: Vec<&str> = s.split(' ').collect();
+                let num = parts.last()?.parse::<i32>().ok()?;
+                let prefix = if parts.len() > 1 {
+                    Some(parts[0])
+                } else {
+                    None
+                };
+                (num, prefix)
+            }
+        };
+
+        let id = stat.get("question_id")?.as_i64()? as i32;
+        let api_category = v.get("category_slug")?.as_str()?;
+        let category = match fid_prefix {
+            Some(prefix) => prefix.to_lowercase(),
+            None => api_category.to_string(),
         };
 
         problems.push(Problem {
-            category: v.get("category_slug")?.as_str()?.to_string(),
+            category,
             fid,
-            id: stat.get("question_id")?.as_i64()? as i32,
+            id,
             level: p.get("difficulty")?.as_object()?.get("level")?.as_i64()? as i32,
             locked: p.get("paid_only")?.as_bool()?,
             name: stat.get("question__title")?.as_str()?.to_string(),
@@ -54,12 +64,35 @@ pub fn desc(q: &mut Question, v: Value) -> Option<bool> {
         .get("question")?
         .as_object()?;
 
-    if *o.get("content")? == Value::Null {
-        return Some(false);
-    }
+    let content_val = o.get("content")?;
+    let translated_val = o.get("translatedContent")?;
+
+    // For CN-specific problems (LCR/LCP/LCS), the API may return:
+    //   1. content: null — translatedContent has the Chinese description
+    //   2. content: "English description is not available..." — a placeholder, not real content
+    // In both cases, fall back to translatedContent.
+    let content_raw = content_val.as_str().unwrap_or("");
+    let content_is_placeholder = content_raw.contains("English description is not available");
+    let use_translated = *content_val == Value::Null || content_is_placeholder;
+
+    let (content_str, t_content_str) = if use_translated {
+        if *translated_val != Value::Null {
+            (
+                translated_val.as_str().unwrap_or("").to_string(),
+                translated_val.as_str().unwrap_or("").to_string(),
+            )
+        } else {
+            return Some(false);
+        }
+    } else {
+        (
+            content_raw.to_string(),
+            translated_val.as_str().unwrap_or("").to_string(),
+        )
+    };
 
     *q = Question {
-        content: o.get("content")?.as_str().unwrap_or("").to_string(),
+        content: content_str,
         stats: serde_json::from_str(o.get("stats")?.as_str()?).ok()?,
         defs: serde_json::from_str(o.get("codeDefinition")?.as_str()?).ok()?,
         case: o.get("sampleTestCase")?.as_str()?.to_string(),
@@ -70,11 +103,7 @@ pub fn desc(q: &mut Question, v: Value) -> Option<bool> {
             .to_string(),
         metadata: serde_json::from_str(o.get("metaData")?.as_str()?).ok()?,
         test: o.get("enableRunCode")?.as_bool()?,
-        t_content: o
-            .get("translatedContent")?
-            .as_str()
-            .unwrap_or("")
-            .to_string(),
+        t_content: t_content_str,
     };
 
     Some(true)

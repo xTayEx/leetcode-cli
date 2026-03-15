@@ -1,6 +1,9 @@
 //! Clap Commanders
 use crate::{
-    cmd::{CompletionsArgs, DataArgs, EditArgs, ExecArgs, ListArgs, PickArgs, StatArgs, TestArgs},
+    cmd::{
+        CompletionsArgs, DataArgs, EditArgs, ExecArgs, ListArgs, NoteArgs, PickArgs, StatArgs,
+        TestArgs,
+    },
     err::Error,
 };
 use clap::{CommandFactory, Parser, Subcommand};
@@ -21,8 +24,18 @@ pub fn reset_signal_pipe_handler() {
 }
 
 /// May the Code be with You
+const BANNER: &str = r#"
+ __                     __    ____                __
+/\ \                   /\ \__/\  _`\             /\ \
+\ \ \         __     __\ \ ,_\ \ \/\_\    ___    \_\ \     __
+ \ \ \  __  /'__`\ /'__`\ \ \/\ \ \/_/_  / __`\  /'_` \  /'__`\
+  \ \ \L\ \/\  __//\  __/\ \ \_\ \ \L\ \/\ \L\ \/\ \L\ \/\  __/
+   \ \____/\ \____\ \____\\ \__\\ \____/\ \____/\ \___,_\ \____\
+    \/___/  \/____/\/____/ \/__/ \/___/  \/___/  \/__,_ /\/____/
+"#;
+
 #[derive(Parser)]
-#[command(name = "leetcode", version, about = "May the Code be with You 👻")]
+#[command(name = "leetcode", version, before_help = BANNER, about = "May the Code be with You 👻")]
 #[command(arg_required_else_help = true)]
 pub struct Cli {
     /// Debug mode
@@ -51,20 +64,24 @@ pub enum Commands {
     #[command(visible_alias = "l", display_order = 4)]
     List(ListArgs),
 
+    /// Take notes for a problem
+    #[command(visible_alias = "n", display_order = 5)]
+    Note(NoteArgs),
+
     /// Pick a problem
-    #[command(visible_alias = "p", display_order = 5)]
+    #[command(visible_alias = "p", display_order = 6)]
     Pick(PickArgs),
 
     /// Show simple chart about submissions
-    #[command(visible_alias = "s", display_order = 6)]
+    #[command(visible_alias = "s", display_order = 7)]
     Stat(StatArgs),
 
     /// Test a question
-    #[command(visible_alias = "t", display_order = 7)]
+    #[command(visible_alias = "t", display_order = 8)]
     Test(TestArgs),
 
     /// Generate shell Completions
-    #[command(visible_alias = "c", display_order = 8)]
+    #[command(visible_alias = "c", display_order = 9)]
     Completions(CompletionsArgs),
 }
 
@@ -88,6 +105,7 @@ pub async fn main() -> Result<(), Error> {
         Some(Commands::Edit(args)) => args.run().await,
         Some(Commands::Exec(args)) => args.run().await,
         Some(Commands::List(args)) => args.run().await,
+        Some(Commands::Note(args)) => args.run().await,
         Some(Commands::Pick(args)) => args.run().await,
         Some(Commands::Stat(args)) => args.run().await,
         Some(Commands::Test(args)) => args.run().await,

@@ -12,6 +12,12 @@ pub struct Storage {
     code: String,
     root: String,
     scripts: Option<String>,
+    #[serde(default = "default_notes")]
+    notes: String,
+}
+
+fn default_notes() -> String {
+    "notes".into()
 }
 
 impl Default for Storage {
@@ -21,6 +27,7 @@ impl Default for Storage {
             code: "code".into(),
             scripts: Some("scripts".into()),
             root: "~/.leetcode".into(),
+            notes: "notes".into(),
         }
     }
 }
@@ -36,6 +43,27 @@ impl Storage {
         Ok(path)
     }
 
+    fn resolve_path(&self, value: &str) -> Result<PathBuf> {
+        if value.starts_with('/') {
+            Ok(PathBuf::from(value))
+        } else if value.starts_with('~') {
+            let home = dirs::home_dir()
+                .ok_or(Error::NoneError)?
+                .to_string_lossy()
+                .to_string();
+            Ok(PathBuf::from(value.replacen('~', &home, 1)))
+        } else {
+            Ok(PathBuf::from(self.root()?).join(value))
+        }
+    }
+
+    fn ensure_dir(p: &PathBuf) -> Result<()> {
+        if !p.exists() {
+            fs::DirBuilder::new().recursive(true).create(p)?;
+        }
+        Ok(())
+    }
+
     /// get cache path
     pub fn cache(&self) -> Result<String> {
         let root = PathBuf::from(self.root()?);
@@ -49,27 +77,26 @@ impl Storage {
 
     /// get code path
     pub fn code(&self) -> Result<String> {
-        let root = &self.root()?;
-        let p = PathBuf::from(root).join(&self.code);
-        if !PathBuf::from(&p).exists() {
-            fs::create_dir(&p)?
-        }
-
+        let p = self.resolve_path(&self.code)?;
+        Self::ensure_dir(&p)?;
         Ok(p.to_string_lossy().to_string())
     }
 
     /// get scripts path
     pub fn scripts(mut self) -> Result<String> {
-        let root = &self.root()?;
         if self.scripts.is_none() {
             self.scripts = Some("scripts".into());
         }
+        let val = self.scripts.clone().ok_or(Error::NoneError)?;
+        let p = self.resolve_path(&val)?;
+        Self::ensure_dir(&p)?;
+        Ok(p.to_string_lossy().to_string())
+    }
 
-        let p = PathBuf::from(root).join(self.scripts.ok_or(Error::NoneError)?);
-        if !PathBuf::from(&p).exists() {
-            std::fs::create_dir(&p)?
-        }
-
+    /// get notes path
+    pub fn notes(&self) -> Result<String> {
+        let p = self.resolve_path(&self.notes)?;
+        Self::ensure_dir(&p)?;
         Ok(p.to_string_lossy().to_string())
     }
 }

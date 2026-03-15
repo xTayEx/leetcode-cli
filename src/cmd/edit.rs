@@ -4,6 +4,10 @@ use anyhow::anyhow;
 use clap::Args;
 use std::collections::HashMap;
 
+static CATEGORY_HELP: &str = r#"Problem category
+[algorithms, database, shell, concurrency, lcp, lcr, lcs, lcof]
+Defaults to "algorithms" if not specified"#;
+
 /// Edit command arguments
 #[derive(Args)]
 #[command(group = clap::ArgGroup::new("question-id").args(&["id", "daily"]).required(true))]
@@ -19,6 +23,10 @@ pub struct EditArgs {
     /// Edit with specific language
     #[arg(short, long)]
     pub lang: Option<String>,
+
+    /// Problem category
+    #[arg(short, long, help = CATEGORY_HELP)]
+    pub category: Option<String>,
 }
 
 impl EditArgs {
@@ -38,8 +46,9 @@ impl EditArgs {
         };
 
         let id = self.id.or(daily_id).ok_or(Error::NoneError)?;
+        let cat = self.category.as_deref();
 
-        let problem = cache.get_problem(id)?;
+        let problem = cache.get_problem(id, cat)?;
         let mut conf = cache.to_owned().0.conf;
 
         let test_flag = conf.code.test;
@@ -57,7 +66,7 @@ impl EditArgs {
         if !Path::new(&path).exists() {
             let mut qr = serde_json::from_str(&problem.desc);
             if qr.is_err() {
-                qr = Ok(cache.get_question(id).await?);
+                qr = Ok(cache.get_question(id, cat).await?);
             }
 
             let question: Question = qr?;

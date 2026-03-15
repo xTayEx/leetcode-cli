@@ -3,7 +3,7 @@ use crate::{cache::Cache, err::Error, helper::Digit};
 use clap::Args;
 
 static CATEGORY_HELP: &str = r#"Filter problems by category name
-[algorithms, database, shell, concurrency]
+[algorithms, database, shell, concurrency, lcp, lcr, lcs, lcof]
 "#;
 
 static QUERY_HELP: &str = r#"Filter questions by conditions:
@@ -86,10 +86,9 @@ impl ListArgs {
             crate::helper::squash(&mut ps, ids)?;
         }
 
-        // filter category
-        if let Some(ref category) = self.category {
-            ps.retain(|x| x.category == *category);
-        }
+        let default_category = "algorithms".to_string();
+        let category = self.category.as_ref().unwrap_or(&default_category);
+        ps.retain(|x| x.category == *category);
 
         // filter query
         if let Some(ref query) = self.query {

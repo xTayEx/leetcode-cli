@@ -2,6 +2,10 @@
 use crate::{Error, Result};
 use clap::Args;
 
+static CATEGORY_HELP: &str = r#"Problem category
+[algorithms, database, shell, concurrency, lcp, lcr, lcs, lcof]
+Defaults to "algorithms" if not specified"#;
+
 /// Test command arguments
 #[derive(Args)]
 #[command(group = clap::ArgGroup::new("question-id").args(&["id", "daily"]).required(true))]
@@ -20,6 +24,9 @@ pub struct TestArgs {
     /// Watch for file changes and test automatically
     #[arg(short, long)]
     pub watch: bool,
+
+    #[arg(short, long, help = CATEGORY_HELP)]
+    pub category: Option<String>,
 }
 
 impl TestArgs {
@@ -40,11 +47,12 @@ impl TestArgs {
         };
 
         let id = self.id.or(daily_id).ok_or(Error::NoneError)?;
+        let cat = self.category.as_deref();
 
         let case_str: Option<String> = self.testcase.as_ref().map(|case| case.replace("\\n", "\n"));
 
         if self.watch {
-            let problem = cache.get_problem(id)?;
+            let problem = cache.get_problem(id, cat)?;
             let path_str = code_path(&problem, None)?;
             let path = Path::new(&path_str);
             let parent = path
@@ -62,7 +70,9 @@ impl TestArgs {
 
             if path.exists() {
                 println!("Watching for changes in {}...", path_str);
-                let res = cache.exec_problem(id, Run::Test, case_str.clone()).await?;
+                let res = cache
+                    .exec_problem(id, Run::Test, cat, case_str.clone())
+                    .await?;
                 println!("{}", res);
             } else {
                 println!("File {} does not exist. Waiting for creation...", path_str);
@@ -89,7 +99,10 @@ impl TestArgs {
                                 continue;
                             }
                             println!("File changed, testing again...");
-                            match cache.exec_problem(id, Run::Test, case_str.clone()).await {
+                            match cache
+                                .exec_problem(id, Run::Test, cat, case_str.clone())
+                                .await
+                            {
                                 Ok(res) => println!("{}", res),
                                 Err(e) => println!("Error: {}", e),
                             }
@@ -101,7 +114,7 @@ impl TestArgs {
                 }
             }
         } else {
-            let res = cache.exec_problem(id, Run::Test, case_str).await?;
+            let res = cache.exec_problem(id, Run::Test, cat, case_str).await?;
             println!("{}", res);
         }
         Ok(())

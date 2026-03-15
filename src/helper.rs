@@ -1,7 +1,7 @@
 //! A set of helper traits
 pub use self::{
     digit::Digit,
-    file::{code_path, load_script, test_cases_path},
+    file::{code_path, load_script, note_path, test_cases_path},
     filter::{filter, squash},
     html::HTML,
 };
@@ -213,6 +213,17 @@ mod file {
             conf.code.pick,
             suffix(&lang)?,
         );
+
+        path = path.replace("${fid}", &problem.fid.to_string());
+        path = path.replace("${slug}", &problem.slug.to_string());
+
+        Ok(path)
+    }
+
+    /// Generate note path by fid
+    pub fn note_path(problem: &Problem) -> crate::Result<String> {
+        let conf = crate::config::Config::locate()?;
+        let mut path = format!("{}/{}.md", conf.storage.notes()?, conf.code.pick);
 
         path = path.replace("${fid}", &problem.fid.to_string());
         path = path.replace("${slug}", &problem.slug.to_string());
